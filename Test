@@ -1,0 +1,119 @@
+import yfinance as yf
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+from io import StringIO
+import plotly.graph_objects as go
+
+# -------------------------------
+# Question 1: Use yfinance to Extract Stock Data for Tesla
+# -------------------------------
+tesla = yf.Ticker("TSLA")
+tesla_data = tesla.history(period="max")
+tesla_data.reset_index(inplace=True)
+print("Question 1: Stock Tesla Data (head):")
+print(tesla_data.head())
+
+# -------------------------------
+# Question 2: Use Webscraping to Extract Tesla Revenue Data
+# -------------------------------
+url_tesla = "https://www.macrotrends.net/stocks/charts/TSLA/tesla/revenue"
+headers = {"User-Agent": "Mozilla/5.0"}
+response_tesla = requests.get(url_tesla, headers=headers)
+
+soup_tesla = BeautifulSoup(response_tesla.text, "html.parser")
+tables_tesla = soup_tesla.find_all("table")
+
+if tables_tesla:
+    try:
+        tesla_revenue = pd.read_html(StringIO(str(tables_tesla[0])), flavor="bs4")[0]
+        tesla_revenue.columns = ["Date", "Revenue"]
+        tesla_revenue.dropna(inplace=True)
+        tesla_revenue = tesla_revenue[:-1]  # Delete last row if irrelevant
+        print("\nQuestion 2: Tesla revenue data (tail):")
+        print(tesla_revenue.tail())
+    except Exception as e:
+        print("Error extracting Tesla revenue data:", e)
+        tesla_revenue = None
+else:
+    print("Tesla revenue table not found.")
+    tesla_revenue = None
+
+
+# -------------------------------
+# Question 3: Use yfinance to Extract Stock Data for GameStop
+# -------------------------------
+gme = yf.Ticker("GME")
+gme_data = gme.history(period="max")
+gme_data.reset_index(inplace=True)
+print("\nQuestion 3: GameStop Stock Data (head):")
+print(gme_data.head())
+
+
+# -------------------------------
+# Question 4: Use Webscraping to Extract GME Revenue Data
+# -------------------------------
+url_gme = "https://www.macrotrends.net/stocks/charts/GME/gamestop/revenue"
+response_gme = requests.get(url_gme, headers=headers)
+soup_gme = BeautifulSoup(response_gme.text, "html.parser")
+tables_gme = soup_gme.find_all("table")
+
+if tables_gme:
+    try:
+        gme_revenue = pd.read_html(StringIO(str(tables_gme[0])), flavor="bs4")[0]
+        gme_revenue.columns = ["Date", "Revenue"]
+        gme_revenue.dropna(inplace=True)
+        gme_revenue = gme_revenue[:-1]  # Eliminar última fila si es irrelevante
+        print("\nQuestion 4: GameStop Revenue Data (tail):")
+        print(gme_revenue.tail())
+    except Exception as e:
+        print("Error extracting GameStop revenue data:", e)
+        gme_revenue = None
+else:
+    print("GameStop revenue table not found.")
+    gme_revenue = None
+
+
+# -------------------------------
+# Function to create the graph using Plotly
+# -------------------------------
+def make_graph(stock_data, revenue_data, title):
+    # Convert 'Date' to datetime and clear 'Revenue'
+    revenue_data['Date'] = pd.to_datetime(revenue_data['Date'])
+    revenue_data['Revenue'] = revenue_data['Revenue'].str.replace(r'[\$,]', '', regex=True).astype(float)
+    
+    fig = go.Figure()
+    # Add trace for stock price
+    fig.add_trace(go.Scatter(x=stock_data['Date'], y=stock_data['Close'],
+                             name="Stock price"))
+    # Add trace for revenue on a secondary axis
+    fig.add_trace(go.Scatter(x=revenue_data['Date'], y=revenue_data['Revenue'],
+                             name="Income", yaxis="y2"))
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title="Date",
+        yaxis=dict(title="Stock price"),
+        yaxis2=dict(title="Income", overlaying="y", side="right")
+    )
+    fig.show()
+
+# -------------------------------
+# Question 5: Plot Tesla Stock Graph
+# -------------------------------
+if tesla_revenue is not None:
+    print("\nQuestion 5: Showing the Tesla graph...")
+    make_graph(tesla_data, tesla_revenue, "Tesla: Share Price vs Revenue")
+else:
+    print("Tesla chart could not be created due to lack of revenue data.")
+
+
+# -------------------------------
+# Question 6: Plot GameStop Stock Graph
+# -------------------------------
+if gme_revenue is not None:
+    print("\nQuestion 6: Showing the GameStop chart...")
+    make_graph(gme_data, gme_revenue, "GameStop: Share Price vs Revenue")
+else:
+    print("GameStop chart could not be created due to lack of revenue data.")
+
